@@ -36,6 +36,18 @@ if uploaded_file:
 # Convertir en DataFrame
 df = pd.DataFrame(st.session_state["ratings"])
 
+# --- Vérification et gestion des doublons ---
+if not df.empty:
+    st.subheader("🔍 Vérification des doublons")
+
+    duplicates = df[df.duplicated(subset=["user_id", "movie_id"], keep=False)]
+    if not duplicates.empty:
+        st.warning("⚠ Doublons détectés ! Les notes multiples pour un même film et utilisateur seront moyennées.")
+        st.dataframe(duplicates)
+
+    # Aggrégation des notes en prenant la moyenne pour éviter les doublons
+    df = df.groupby(["user_id", "movie_id"], as_index=False).agg({"rating": "mean"})
+
 # --- Affichage des données ---
 st.subheader("📊 Données Utilisateur-Film")
 if not df.empty:
@@ -63,23 +75,20 @@ if not df.empty:
     # --- Génération du TOP N ---
     top_n = st.number_input("🎯 Sélectionner N pour Top N recommandations :", min_value=1, max_value=10, value=3)
 
-    def get_top_n_recommendations(movie_id, n=None):
-        if n is None:
-            n = top_n
+    def get_top_n_recommendations(movie_id, n=top_n):
         if movie_id in item_sim_df.index:
             similar_items = item_sim_df[movie_id].sort_values(ascending=False)[1:n+1]
             return similar_items.index.tolist()
         return []
 
     # Affichage des recommandations
-    if not pivot_table.empty:
-        selected_movie = st.selectbox("🎥 Choisissez un film pour voir les recommandations :", pivot_table.columns)
-        recommended_movies = get_top_n_recommendations(selected_movie, top_n)
+    selected_movie = st.selectbox("🎥 Choisissez un film pour voir les recommandations :", pivot_table.columns)
+    recommended_movies = get_top_n_recommendations(selected_movie, top_n)
 
-        if recommended_movies:
-            st.success(f"✅ Films recommandés pour {selected_movie} : {recommended_movies}")
-        else:
-            st.warning("⚠ Aucune recommandation trouvée.")
+    if recommended_movies:
+        st.success(f"✅ Films recommandés pour {selected_movie} : {recommended_movies}")
+    else:
+        st.warning("⚠ Aucune recommandation trouvée.")
 
     # --- Recherche d'un utilisateur et d'un film précis ---
     st.subheader("🔍 Rechercher une Note")
@@ -106,7 +115,7 @@ else:
 # --- Footer ---
 st.markdown(
     """
-    <div style="text-align: center; padding: 10px; font-size: 14px;">
+    <div style="text-align: center; padding: 10px; font-size: 16px;">
         by <a href="https://rachidbissare.vercel.app" target="_blank" style="text-decoration: none; color: #0073b1;">
         Abdoul Rachid BISSARE</a>
     </div>
